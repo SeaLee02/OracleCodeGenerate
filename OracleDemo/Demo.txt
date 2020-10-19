@@ -1,0 +1,27 @@
+﻿namespace @(Model.NameSpace).ViewModel
+{
+    using Newtonsoft.Json;
+    using System;
+    using System.ComponentModel.DataAnnotations;
+    using TDSCore;
+
+    [ExcelImporter(IsLabelingError = true)]
+    @if(@Model.IS_Base){
+    @:public class @Model.ClassName : BaseViewModel
+}else{
+    @:public class @Model.ClassName
+}
+    {
+    @foreach (var item in @Model.Tables)
+    {
+        @: /// <summary>
+        @: /// @item.DES
+        @: /// </summary>
+        @if(@item.PRO_STR!=""){
+        @: [@Raw(item.PRO_STR)]
+        } 
+        @: public @item.TYPE @item.NAME { get; set; }
+        @:      
+     }
+    }
+ }

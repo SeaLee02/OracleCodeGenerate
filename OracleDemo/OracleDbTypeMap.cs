@@ -89,6 +89,12 @@ namespace OracleDemo
                 return Type.Missing.GetType();
             }
 
+            //如果是枚举
+            if (dbtype.Contains("Enum"))
+            {
+                return typeof(Enum);
+            }
+
             dbtype = dbtype.ToLower();
             Type commonType = typeof(object);
             switch (dbtype)

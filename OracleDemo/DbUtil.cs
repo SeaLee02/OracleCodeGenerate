@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace OracleDemo
 {
@@ -110,8 +111,95 @@ CAST(case a.nullable when 'N' then 0 else 1 end as NUMBER(1)) as IsNullable
             {
                 var column = list.Find(x => x.ColumnName == table.TablePrimarkeyName);
                 column.IsPrimaryKey = true;
+                if (!string.IsNullOrWhiteSpace(column.ColumnDesc))
+                {
+                    string enumStr = GetEnumStr(column.ColumnDesc, column.ColumnName, table);
+                    if (!string.IsNullOrEmpty(enumStr))
+                    {
+                        column.ColumnType = enumStr;
+                    }
+                }
             }
             return list;
+        }
+
+        /// <summary>
+        /// 获取枚举字符串
+        /// </summary>
+        /// <param name="columnDesc"></param>
+        /// <param name="colName"></param>
+        /// <param name="table"></param>
+        /// <returns></returns>
+        private static string GetEnumStr(string columnDesc, string colName, DbTable table)
+        {
+            string regex = @"\(([^)]*)\)";
+            if (Regex.IsMatch(columnDesc, regex))
+            {
+                //枚举定义规则: xxxm枚举(value.key[Des];) 
+                // 枚举结尾,()中是枚举定义,[]中是描述值可有可无, .分割值和key,  ;分割每个定义
+                string enumString = columnDesc;
+                // "测试枚举(7.Sunday[星期天];1.Monday[星期一];2.Tuesday[星期二];3.Wednesday[];5.Friday)";
+                string math = Regex.Match(enumString, regex).Value; //得到枚举字符串，带()
+                string text = math.Replace("(", "").Replace(")", ""); //去除()
+                string one = "    ";  //一级空格
+                string two = "        "; //二级空格
+                string enumName = colName + "Enum";
+                StringBuilder enumSb = new StringBuilder();
+                //拼接头部
+                enumSb.AppendLine($"{one}/// <summary>");
+                enumSb.AppendLine($"{one}/// {columnDesc}");
+                enumSb.AppendLine($"{one}/// </summary>");
+                enumSb.AppendLine($"{one}public enum {enumName}");
+                enumSb.AppendLine($"{one}{{");
+                int i = 1;
+                string[] arry = text.Split(';');
+                foreach (string item in arry)
+                {
+                    if (item.Contains("[") && item.Contains("]"))  //是否包含描述
+                    {
+                        string[] arry3 = item.Split('[');
+                        string[] arry2 = arry3[0].Split('.');
+                        //拼接枚举值
+                        enumSb.AppendLine($"{two}/// <summary>");
+                        enumSb.AppendLine($"{two}/// {arry2[1]}");
+                        enumSb.AppendLine($"{two}/// </summary>");
+                        enumSb.AppendLine($"{two}[Description(\"{arry3[1].Replace("]", "")}\")]");
+                        if (i == arry.Length)  //最后一个不带,
+                        {
+                            enumSb.AppendLine($"{two}{arry2[1]} = {arry2[0]}");
+                        }
+                        else   //带,
+                        {
+                            enumSb.AppendLine($"{two}{arry2[1]} = {arry2[0]},");
+                        }
+                        enumSb.AppendLine("");
+
+                    }
+                    else
+                    {
+                        string[] arry2 = item.Split('.');
+                        enumSb.AppendLine($"{two}/// <summary>");
+                        enumSb.AppendLine($"{two}/// {arry2[1]}");
+                        enumSb.AppendLine($"{two}/// </summary>");
+                        if (i == arry.Length)
+                        {
+                            enumSb.AppendLine($"{two}{arry2[1]} = {arry2[0]}");
+                        }
+                        else
+                        {
+                            enumSb.AppendLine($"{two}{arry2[1]} = {arry2[0]},");
+                        }
+                        enumSb.AppendLine("");
+                    }
+
+                    i++;
+                }
+                enumSb.AppendLine($"{one}}}");
+                table.ListEnumStr.Add(enumSb.ToString());
+                return enumName;
+            }
+            return string.Empty;
+
         }
 
         /// <summary>
